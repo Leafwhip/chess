@@ -1,208 +1,249 @@
-class Piece {
-    constructor(color = 'white', pos = null) {
-        this.color = color;
-        this.pos = pos;
-        this.name = '';
-        this.points = 0;
-        this.moved = false;
-    }
+// top, right, bottom, left, topright, bottomright, bottomleft, topleft
+const vectorMap = [-8, 1, 8, -1, -7, 9, 7, -9];
 
-    setPos(pos) {
-        this.pos = pos;
-    }
+const distanceMap = Array(64);
 
-    select() {
-        if(turn != this.color) {
-            // return;
+function loadDistancesFromEdge() {
+    for(let i = 0; i < 64; i++) {
+        let leftEdge = i % 8;
+        let rightEdge = 7 - leftEdge;
+        let topEdge = Math.floor(i / 8);
+        let bottomEdge = 7 - topEdge;
+
+        // top, right, bottom, left, topright, bottomright, bottomleft, topleft
+        distanceMap[i] = [
+            topEdge,
+            rightEdge,
+            bottomEdge,
+            leftEdge,
+            Math.min(topEdge, rightEdge),
+            Math.min(bottomEdge, rightEdge),
+            Math.min(bottomEdge, leftEdge),
+            Math.min(topEdge, leftEdge)
+        ];
+    } 
+}
+
+function createPiece(type, color, pos) {
+    let pieces = {
+        'pawn': Pawn,
+        'knight': Knight,
+        'bishop': Bishop,
+        'rook': Rook,
+        'queen': Queen,
+        'king': King,
+    }
+    if(!pieces[type]) {
+        return null;
+    }
+    return new pieces[type](color, pos);
+}
+
+function checkLines(piece, vectors) {
+    let moves = [];
+
+    for(let i = 0; i < vectors.length; i++) {
+        let d = vectorMap[i];
+        if(vectors[i] == 0 || d == 0) {
+            continue;
         }
-        let possibleMoves = this.getPossibleMoves();
-        board.highlightList(possibleMoves);
-    }
-
-    getPossibleMoves() {
-        return [];
-    }
-
-    checkSquare(pos) {
-        let piece = board.getPiece(pos);
-        if(piece == null) {
-            return 1;
-        }
-        if(piece.color && piece.color != this.color) {
-            return 2;
-        }
-        return 0;
-    }
-
-    calcNewPos(_d) {
-        let d = _d;
-        if(board.pov != this.color) {
-            d = [-_d[0], -_d[1]];
-        }
-        return [this.pos[0] + d[0], this.pos[1] + d[1]];
-    }
-
-    line(d) {
-        let list = [];
-        let z = 0;
-        let end1 = false;
-        let end2 = false;
-        while(++z < 1000) {
-            let newPos1 = this.calcNewPos([z * d[0], z * d[1]]);
-            let newPos2 = this.calcNewPos([-z * d[0], -z * d[1]]);
-            let check1 = this.checkSquare(newPos1);
-            let check2 = this.checkSquare(newPos2);
-            
-            if(!end1 && check1) {
-                list.push(newPos1);
-            }
-            if(!end2 && check2) {
-                list.push(newPos2);
-            }
-            if(check1 != 1) {
-                end1 = true;
-            }
-            if(check2 != 1) {
-                end2 = true;
-            }
-            if(end1 && end2) {
+        
+        for(let j = 0; j < distanceMap[piece.pos][i]; j++) {
+            let newPos = piece.pos + (j + 1) * vectorMap[i];
+            // if it is a piece
+            if(board[newPos] != null) {
+                // if opposite color, add capture to movelist
+                if(board[newPos].color != piece.color) {
+                    moves.push(newPos);
+                }
                 break;
             }
+
+            moves.push(newPos);
         }
-        return list;
+    }
+
+    return moves;
+}
+
+class Piece {
+    constructor(color, pos) {
+        this.color = color;
+        this.pos = pos;
+        this.type = '';
+        this.points = 0;
+    }
+
+    getMoves() {
+        return [];
     }
 }
 
 class Pawn extends Piece {
     constructor(color, pos) {
         super(color, pos);
-        this.name = 'pawn';
+        this.type = 'pawn';
         this.points = 1;
-        this.enpassantable = false;
     }
 
-    getPossibleMoves() {
-        let possibleMoves = [];
-        if(this.checkSquare(this.calcNewPos([-1, 0])) == 1) {
-            possibleMoves.push(this.calcNewPos([-1, 0]));
-            if(this.checkSquare(this.calcNewPos([-2, 0])) == 1 && !this.moved) {
-                possibleMoves.push(this.calcNewPos([-2, 0]));
+    getMoves() {
+        let moves = [];
+
+        if(this.color == 'white') {
+            if(!board[this.pos - 8]) {
+                moves.push(this.pos - 8);
+                if(Math.floor(this.pos / 8) == 6 && !board[this.pos - 16]) {
+                    moves.push(this.pos - 16);
+                }
+            }
+
+            if(board[this.pos - 9] && board[this.pos - 9].color != this.color) {
+                moves.push(this.pos - 9);
+            }
+            if(board[this.pos - 7] && board[this.pos - 7].color != this.color) {
+                moves.push(this.pos - 7);
+            }
+
+            if(ep == this.pos + 1) {
+                moves.push(this.pos - 7);
+            }
+            if(ep == this.pos - 1)  {
+                moves.push(this.pos - 9);
             }
         }
-        if(this.checkSquare(this.calcNewPos([-1, -1])) == 2) {
-            possibleMoves.push(this.calcNewPos([-1, -1]));
+
+        if(this.color == 'black') {
+            if(!board[this.pos + 8]) {
+                moves.push(this.pos + 8);
+                if(Math.floor(this.pos / 8) == 1 && !board[this.pos + 16]) {
+                    moves.push(this.pos + 16);
+                }
+            }
+
+            if(board[this.pos + 9] && board[this.pos + 9].color != this.color) {
+                moves.push(this.pos + 9);
+            }
+            if(board[this.pos + 7] && board[this.pos + 7].color != this.color) {
+                moves.push(this.pos + 7);
+            }
+
+            if(ep == this.pos + 1) {
+                moves.push(this.pos + 9);
+            }
+            if(ep == this.pos - 1)  {
+                moves.push(this.pos + 7);
+            }
         }
-        if(this.checkSquare(this.calcNewPos([-1, 1])) == 2) {
-            possibleMoves.push(this.calcNewPos([-1, 1]));
-        }
-        return possibleMoves;
+
+        moves = moves.filter(a => a >= 0 && a < 64);
+        return moves;
     }
 }
 
 class Knight extends Piece {
     constructor(color, pos) {
         super(color, pos);
-        this.name = 'knight';
+        this.type = 'knight';
         this.points = 3;
     }
 
-    getPossibleMoves() {
-        let possibleMoves = [];
-        [[-1, 2], [-2, 1], [-2, -1], [-1, -2], [1, -2], [2, -1], [2, 1], [1, 2]].forEach(d => {
-            if(this.checkSquare(this.calcNewPos(d)) != 0) {
-                possibleMoves.push(this.calcNewPos(d));
+    getMoves() {
+        // first 4 are left, last 4 are right
+        let vList = [-17, -10, 6, 15, -15, -6, 10, 17];
+        let moves = vList.map(a => this.pos + a);
+
+        // filter out things that wrap
+        for(let i = 0; i < 4; i++) {
+            if(moves[i] % 8 > this.pos % 8) {
+                // will be filtered
+                moves[i] = -1;
             }
-        })
-        return possibleMoves;
+            
+            if(moves[i + 4] % 8 < this.pos % 8) {
+                moves[i + 4] = -1;
+            }
+        }
+        moves = moves.filter(a => a >= 0 && a < 64);
+        moves = moves.filter(a => board[a]?.color != this.color);
+        return moves;
     }
 }
 
 class Bishop extends Piece {
     constructor(color, pos) {
         super(color, pos);
-        this.name = 'bishop';
+        this.type = 'bishop';
         this.points = 3;
     }
 
-    getPossibleMoves() {
-        let possibleMoves = [];
-        [[1, 1], [1, -1]].forEach(d => {
-            let line = this.line(d);
-            for(let i = 0; i < line.length; i++) {
-                possibleMoves.push(line[i]);
-            }
-        })
-        return possibleMoves;
+    getMoves() {
+        let moves = checkLines(this, [0, 0, 0, 0, 1, 1, 1, 1]);
+        return moves;
     }
 }
 
 class Rook extends Piece {
     constructor(color, pos) {
         super(color, pos);
-        this.name = 'rook';
+        this.type = 'rook';
         this.points = 5;
     }
 
-    getPossibleMoves() {
-        let possibleMoves = [];
-        [[1, 0], [0, 1]].forEach(d => {
-            let line = this.line(d);
-            for(let i = 0; i < line.length; i++) {
-                possibleMoves.push(line[i]);
-            }
-        })
-        return possibleMoves;
+    getMoves() {
+        let moves = checkLines(this, [1, 1, 1, 1, 0, 0, 0, 0]);
+        return moves;
     }
 }
 
 class Queen extends Piece {
     constructor(color, pos) {
         super(color, pos);
-        this.name = 'queen';
+        this.type = 'queen';
         this.points = 9;
     }
-    
-    getPossibleMoves() {
-        let possibleMoves = [];
-        [[1, 0], [1, 1], [0, 1], [-1, 1]].forEach(d => {
-            let line = this.line(d);
-            for(let i = 0; i < line.length; i++) {
-                possibleMoves.push(line[i]);
-            }
-        })
-        return possibleMoves;
+
+    getMoves() {
+        let moves = checkLines(this, [1, 1, 1, 1, 1, 1, 1, 1]);
+        return moves;
     }
 }
 
 class King extends Piece {
     constructor(color, pos) {
         super(color, pos);
-        this.name = 'king';
-        this.points = 0;
+        this.type = 'king';
+        this.points = 1000;
     }
 
-    getPossibleMoves() {
-        let possibleMoves = [];
-        [[0, 1], [-1, 1], [-1, 0], [-1, -1], [0, -1], [1, -1], [1, 0], [1, 1]].forEach(d => {
-            if(this.checkSquare(this.calcNewPos(d)) != 0) {
-                possibleMoves.push(this.calcNewPos(d));
+    getMoves() {
+        // first 3 left, next 3 right, last 2 middle
+        let vList = [-9, -1, 7, -7, 1, 9, -8, 8];
+        let moves = vList.map(a => this.pos + a);
+
+        // filter out things that wrap
+        for(let i = 0; i < 3; i++) {
+            if(moves[i] % 8 > this.pos % 8) {
+                // will be filtered
+                moves[i] = -1;
             }
-        })
-        return possibleMoves;
+            
+            if(moves[i + 3] % 8 < this.pos % 8) {
+                moves[i + 3] = -1;
+            }
+        }
+
+        // castling
+        // Note: if castling comes before the normal king moves, the check for legality later won't work (otherwise we'd have to test the move every time)
+        if((this.color == 'white' ? castling[0] : castling[2]) && !board[this.pos + 1] && !board[this.pos + 2]) {
+            moves.push(this.pos + 2);
+        }
+        if((this.color == 'white' ? castling[1] : castling[3]) && !board[this.pos - 1] && !board[this.pos - 2] && !board[this.pos - 3]) {
+            moves.push(this.pos - 2);
+        }
+        
+        
+        moves = moves.filter(a => a >= 0 && a < 64);
+        moves = moves.filter(a => board[a]?.color != this.color);
+        return moves;
     }
 }
-
-function createPiece(name, color, pos) {
-    let pieces = {
-        pawn: Pawn,
-        knight: Knight,
-        bishop: Bishop,
-        rook: Rook,
-        queen: Queen,
-        king: King
-    }
-    let piece = new pieces[name](color, pos);
-    return piece;
-}
-
-

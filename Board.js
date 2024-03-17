@@ -1,102 +1,83 @@
-class Board {
-    constructor(element, size, squareSize, theme) {
-        this.grid;
-        this.element = element;
-        this.height = size[0];
-        this.width = size[1];
-        this.squareSize = squareSize;
-        this.theme = theme;
-        this.selectedPiece = null;
-        this.pov = 'white';
-    }
+const boardDiv = document.querySelector('#board');
 
-    unhighlightAll() {
-        for(let i = 0; i < this.grid.length; i++) {
-            for(let j = 0; j < this.grid[i].length; j++) {
-                this.grid[i][j].unhighlight();
-            }
-        }
-    }
+const HTMLboard = Array(64);
 
-    highlightList(list) {
-        for(let i = 0; i < list.length; i++) {
-            let pos = list[i];
-            this.grid[pos[0]][pos[1]].highlight();
+const Board = {
+    createBoard: () => {
+        boardDiv.innerHTML = '';
+        for(let i = 0; i < 64; i++) {
+            let square = document.createElement('div');
+            square.classList.add('square');
+            square.classList.add((~~(i / 8) + i) % 2 == 0 ? 'white' : 'black');
+            square.pos = i;
+            square.style.height = '64px';
+            square.style.width = '64px';
+            square.style.order = i;
+            square.addEventListener('click', Board.selectSquare);
+            HTMLboard[i] = square;
+            boardDiv.append(square);
         }
-    }
-
-    getPiece(pos) {
-        if(!this.inBounds(pos)) {
-            return 'Out of bounds!';
-        }
-        return this.grid[pos[0]][pos[1]].piece;
-    }
-
-    inBounds(pos) {
-        if(pos[0] < 0 || pos[0] > this.height - 1 || pos[1] < 0 || pos[1] > this.width - 1) {
-            return false;
-        }
-        return true;
-    }
-
-    selectSquare(square) {
-        if(this.selectedPiece == null) {
-            if(square.piece == null) {
-                return;
-            }
-            this.selectedPiece = square.piece;
-            this.selectedPiece.select();
-        }
-        else {
-            this.move(this.selectedPiece.pos, square.pos);
-            this.selectedPiece = null;
-        }
-    }
-
-    createBoard() {
-        this.grid = Array(this.height).fill(Array(this.width)).map(a => [...a]);
-        this.element.innerHTML = '';
-        for(let i = 0; i < this.height; i++) {
-            for(let j = 0; j < this.width; j++) {
-                let element = document.createElement('div');
-                element.classList.add('square');
-                let color = i % 2 + j % 2 == 1 ? 'black' : 'white';
-                element.classList.add(color);
-                element.style.width = squareSize;
-                element.style.height = squareSize;
-                this.element.append(element);
-                let square = new Square(element, [i, j], color);
-                this.grid[i][j] = square;
-            }
-        }
-        this.element.style.height = `${squareSize * this.height}px`;
-        this.element.style.width = `${squareSize * this.width}px`;
-    }
-
-    flipBoard() {
-        
-    }
-
-    setup() {
-        this.createBoard(this.height, this.width);
-        let [layout, colors] = defaultLayout;
-        for(let i = 0; i < layout.length; i++) {
-            for(let j = 0; j < layout[0].length; j++) {
-                let name = layout[i][j];
-                let color = colorKey[colors[i][j]];
-                if(name && color) {
-                    let piece = createPiece(name, color, [i, j]);
-                    this.grid[i][j].setPiece(piece);
-                }
-            }
-        }
-    }
+        boardDiv.style.width = `${8 * 64}px`;
+        boardDiv.style.height = `${8 * 64}px`;
+    },
     
-    move(start, end) {
-        console.log(start, end)
-        this.grid[end[0]][end[1]].setPiece(this.grid[start[0]][start[1]].piece);
-        this.grid[end[0]][end[1]].piece.setPos([end[0], end[1]]);
-        this.grid[end[0]][end[1]].piece.moved = true;
-        this.grid[start[0]][start[1]].setPiece(null);
-    }
+    selectSquare: (e) => {
+        let square = e.target;
+        document.querySelector('.selected')?.classList.remove('selected');
+        Board.unhighlightAll();
+        // if the selection did not result in a move
+        let result = Game.selectSquare(square.pos);
+        if(!result) {
+            square.classList.add('selected');
+        }
+    },
+
+    deselectAll: () => {
+        squareSelected = null;
+        for(let i = 0; i < HTMLboard.length; i++) {
+            HTMLboard[i].classList.remove('selected');
+        }
+    },
+
+    highlightSquare: (pos) => {
+        HTMLboard[pos].classList.add('highlighted');
+    },
+
+    highlightList: (arr) => {
+        for(let i = 0; i < arr.length; i++) {
+            Board.highlightSquare(arr[i]);
+        }
+    },
+
+    unhighlightAll: () => {
+        for(let i = 0; i < HTMLboard.length; i++) {
+            HTMLboard[i].classList.remove('highlighted');
+        }
+    },
+
+    clickOutside: (e) => {
+        if(!e.target.classList.contains('square')) {
+            Board.deselectAll();
+            Board.unhighlightAll();
+        }
+    },
+
+    updateBoardPieces: () => {
+        for(let i = 0; i < 64; i++) {
+            HTMLboard[i].innerHTML = '';
+            if(board[i]) {
+                let piece = board[i];
+                let image = document.createElement('img');
+                image.src = `assets/${piece.type}${piece.color}.png`;
+                image.classList.add('piece-img');
+                HTMLboard[i].append(image);
+            }
+        }
+    },
+
+    flipBoard: () => {
+        for(let i = 0; i < 64; i++) {
+            HTMLboard[i].style.order = 63 - HTMLboard[i].style.order;
+        }
+    },
 }
